@@ -1,0 +1,13 @@
+node_modules
+*/node_modules
+*/*/node_modules
+.git
+.github
+dist
+build
+coverage
+*.log
+cpp-engine/test_output
+cpp-engine/*.exe
+cpp-engine/*.o
+cpp-engine/test_runner*
