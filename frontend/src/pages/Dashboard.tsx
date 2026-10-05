@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   GraduationCap,
   Building2,
@@ -22,6 +23,7 @@ import Card from "../components/common/Card";
 import Button from "../components/common/Button";
 
 export const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [upcomingExams, setUpcomingExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,7 @@ export const Dashboard: React.FC = () => {
         title="Dashboard"
         subtitle="Monitor examinations, classrooms, students and seating allocation from one unified workspace."
         actions={
-          <Button onClick={() => window.location.href = '/seating'}>
+          <Button onClick={() => navigate('/seating')}>
             <Plus size={18} />
             New Allocation
           </Button>
@@ -78,7 +80,7 @@ export const Dashboard: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-10">
-              <Button size="lg" onClick={() => window.location.href = '/seating'}> 
+              <Button size="lg" onClick={() => navigate('/seating')}> 
                 Generate Seating
                 <ArrowRight size={18} />
               </Button>
@@ -182,7 +184,7 @@ export const Dashboard: React.FC = () => {
           subtitle="Frequently used shortcuts"
         >
           <div className="grid gap-4">
-            <Button className="h-14 justify-between" onClick={() => window.location.href = '/students'}>
+            <Button className="h-14 justify-between" onClick={() => navigate('/students')}>
               Manage Students
               <Plus size={16} />
             </Button>
@@ -190,7 +192,7 @@ export const Dashboard: React.FC = () => {
               h-14
               variant="secondary"
               className="justify-between"
-              onClick={() => window.location.href = '/classrooms'}
+              onClick={() => navigate('/classrooms')}
             >
               Configure Classrooms
               <Plus size={16} />
@@ -199,12 +201,12 @@ export const Dashboard: React.FC = () => {
               h-14
               variant="secondary"
               className="justify-between"
-              onClick={() => window.location.href = '/exams'}
+              onClick={() => navigate('/exams')}
             >
               Schedule Examinations
               <Plus size={16} />
             </Button>
-            <Button h-14 variant="outline" className="justify-between" onClick={() => window.location.href = '/seating'}>
+            <Button h-14 variant="outline" className="justify-between" onClick={() => navigate('/seating')}>
               Seat Matrix Optimizer
               <ArrowRight size={16} />
             </Button>
