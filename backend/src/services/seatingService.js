@@ -1,20 +1,24 @@
 const db = require("../config/db");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
+const crypto = require("crypto");
 const util = require("util");
 const { runAllocator } = require("./allocatorService");
 
-const queryAsync = util.promisify(db.query).bind(db);
-const beginTransactionAsync = util.promisify(db.beginTransaction).bind(db);
-const commitAsync = util.promisify(db.commit).bind(db);
-const rollbackAsync = util.promisify(db.rollback).bind(db);
+const queryPoolAsync = util.promisify(db.query).bind(db);
+const getConnectionAsync = util.promisify(db.getConnection).bind(db);
 
 const cleanupFiles = (inPath, outPath) => {
     try {
         if (inPath && fs.existsSync(inPath)) fs.unlinkSync(inPath);
+    } catch (e) {
+        console.error("Cleanup error for input file:", e.message);
+    }
+    try {
         if (outPath && fs.existsSync(outPath)) fs.unlinkSync(outPath);
     } catch (e) {
-        console.error("Cleanup error:", e);
+        console.error("Cleanup error for output file:", e.message);
     }
 };
 
@@ -40,10 +44,10 @@ const generateSeating = async (examId, classroomIds) => {
             FROM exams
             WHERE exam_id = ?;
         `;
-        const exams = await queryAsync(examQuery, [examId]);
+        const exams = await queryPoolAsync(examQuery, [examId]);
 
         if (!exams || exams.length === 0) {
-            throw new Error("Exam not found.");
+            throw new Error(`Exam with ID ${examId} not found.`);
         }
 
         const currentExam = exams[0];
@@ -74,14 +78,14 @@ const generateSeating = async (examId, classroomIds) => {
               AND e.start_time < ?
               AND e.end_time > ?;
         `;
-        const occupiedRooms = await queryAsync(conflictQuery, [
+        const occupiedRooms = await queryPoolAsync(conflictQuery, [
             examId, 
             currentExam.exam_date, 
             currentExam.end_time, 
             currentExam.start_time
         ]);
 
-        // Check if user selected any classroom that is already occupied by a conflicting exam
+        // Check if user explicitly selected any classroom that is already occupied
         if (classroomIds && classroomIds.length > 0 && occupiedRooms && occupiedRooms.length > 0) {
             const conflicting = occupiedRooms.find(occ => classroomIds.includes(occ.classroom_id));
             if (conflicting) {
@@ -108,7 +112,7 @@ const generateSeating = async (examId, classroomIds) => {
             WHERE er.exam_id = ?
             ORDER BY s.roll_no;
         `;
-        const students = await queryAsync(studentQuery, [examId]);
+        const students = await queryPoolAsync(studentQuery, [examId]);
 
         if (!students || students.length === 0) {
             throw new Error("No students are registered for this exam. Please register students before generating the seating plan.");
@@ -136,7 +140,7 @@ const generateSeating = async (examId, classroomIds) => {
             roomParams.push(occupiedIds);
         }
 
-        const rooms = await queryAsync(roomQuery, roomParams);
+        const rooms = await queryPoolAsync(roomQuery, roomParams);
 
         if (!rooms || rooms.length === 0) {
             throw new Error("No classrooms selected or available for this examination schedule.");
@@ -164,25 +168,12 @@ const generateSeating = async (examId, classroomIds) => {
         }
 
         // ===========================
-        // 6. Generate temp files & Execute C++ Allocator
+        // 6. Generate Unique Temporary Files & Execute C++ Allocator
         // ===========================
-        inputPath = path.join(
-            __dirname,
-            "..",
-            "..",
-            "..",
-            "cpp-engine",
-            `input_${examId}.json`
-        );
-
-        outputPath = path.join(
-            __dirname,
-            "..",
-            "..",
-            "..",
-            "cpp-engine",
-            `output_${examId}.json`
-        );
+        const uniqueId = `${examId}_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+        const tempDir = os.tmpdir();
+        inputPath = path.join(tempDir, `exam_alloc_in_${uniqueId}.json`);
+        outputPath = path.join(tempDir, `exam_alloc_out_${uniqueId}.json`);
 
         const inputData = {
             students,
@@ -190,14 +181,14 @@ const generateSeating = async (examId, classroomIds) => {
         };
 
         // Write input json
-        fs.writeFileSync(inputPath, JSON.stringify(inputData, null, 2));
+        fs.writeFileSync(inputPath, JSON.stringify(inputData, null, 2), "utf8");
 
-        // Run allocator.exe
+        // Run C++ engine binary
         await runAllocator(inputPath, outputPath, "Snake");
 
         // Verify output json exists
         if (!fs.existsSync(outputPath)) {
-            throw new Error("Allocator output file was not created.");
+            throw new Error("Allocator output file was not created by the engine.");
         }
 
         // Read output json
@@ -206,7 +197,7 @@ const generateSeating = async (examId, classroomIds) => {
         try {
             outputData = JSON.parse(outputDataRaw);
         } catch (e) {
-            throw new Error("Allocator output is malformed JSON.");
+            throw new Error("Allocator engine returned malformed JSON output.");
         }
 
         // Validate engine response status
@@ -219,11 +210,17 @@ const generateSeating = async (examId, classroomIds) => {
         const summary = outputData.summary || {};
 
         // ===========================
-        // 7. Persist to database (Transaction)
+        // 7. Persist to Database via Dedicated Pool Connection Transaction
         // ===========================
-        await beginTransactionAsync();
+        const connection = await getConnectionAsync();
+        const connQuery = util.promisify(connection.query).bind(connection);
+        const connBeginTransaction = util.promisify(connection.beginTransaction).bind(connection);
+        const connCommit = util.promisify(connection.commit).bind(connection);
+        const connRollback = util.promisify(connection.rollback).bind(connection);
 
         try {
+            await connBeginTransaction();
+
             // Delete previous assignments for this exam
             const deleteAssignmentsQuery = `
                 DELETE sa 
@@ -231,16 +228,16 @@ const generateSeating = async (examId, classroomIds) => {
                 JOIN seating_plans sp ON sa.plan_id = sp.plan_id
                 WHERE sp.exam_id = ?
             `;
-            await queryAsync(deleteAssignmentsQuery, [examId]);
+            await connQuery(deleteAssignmentsQuery, [examId]);
 
             // Delete previous plans for this exam
             const deletePlanQuery = `
                 DELETE FROM seating_plans
                 WHERE exam_id = ?
             `;
-            await queryAsync(deletePlanQuery, [examId]);
+            await connQuery(deletePlanQuery, [examId]);
 
-            // Create new seating plan with summary stats
+            // Create new seating plan with summary statistics
             const insertPlanQuery = `
                 INSERT INTO seating_plans
                 (
@@ -263,7 +260,7 @@ const generateSeating = async (examId, classroomIds) => {
                 summary.totalConflicts || 0,
                 summary.executionTimeMs || 0.0
             ];
-            const planResult = await queryAsync(insertPlanQuery, stats);
+            const planResult = await connQuery(insertPlanQuery, stats);
             const newPlanId = planResult.insertId;
 
             // Batch insert all seat assignments
@@ -289,11 +286,10 @@ const generateSeating = async (examId, classroomIds) => {
                     )
                     VALUES ?
                 `;
-                await queryAsync(insertAssignmentsQuery, [assignmentValues]);
+                await connQuery(insertAssignmentsQuery, [assignmentValues]);
             }
 
-            await commitAsync();
-            cleanupFiles(inputPath, outputPath);
+            await connCommit();
 
             return {
                 success: true,
@@ -303,8 +299,11 @@ const generateSeating = async (examId, classroomIds) => {
             };
 
         } catch (txErr) {
-            await rollbackAsync().catch(() => {});
+            await connRollback().catch(() => {});
             throw txErr;
+        } finally {
+            connection.release();
+            cleanupFiles(inputPath, outputPath);
         }
 
     } catch (err) {
