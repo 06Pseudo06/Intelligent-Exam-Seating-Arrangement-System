@@ -1,20 +1,30 @@
 const mysql = require('mysql2');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
-const connection = mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME
-})
-
-connection.connect((err) => {
-    if (err) {
-        console.error('Error connecting to the database:', err);
-        return;
-    }
-    console.log('Connected to the MySQL database!');
+const pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT, 10) || 3306,
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'exam_seating_db',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000
 });
 
-module.exports = connection;
-    
+// Test initial connectivity in non-test mode
+if (process.env.NODE_ENV !== 'test' && require.main === module) {
+    pool.getConnection((err, conn) => {
+        if (err) {
+            console.error('⚠️ [Database Pool] Initial connection failed:', err.message);
+        } else {
+            console.log('✅ [Database Pool] Successfully connected to MySQL server.');
+            conn.release();
+        }
+    });
+}
+
+module.exports = pool;
