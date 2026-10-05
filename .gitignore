@@ -1,118 +1,49 @@
-# Logs
-
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
 # Dependencies
-
 node_modules/
-
-# Build Output
-
-dist/
-dist-ssr/
-build/
-
-# Environment Variables
-
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Local-only config
-
-*.local
-
-# Coverage
-
-coverage/
-
-# Vite
-
-.vite/
-
-# TypeScript
-
-*.tsbuildinfo
-
-# Editor directories and files
-
-.vscode/*
-!.vscode/extensions.json
-.idea/
-
-# Operating System files
-
-.DS_Store
-Thumbs.db
-
-# Visual Studio
-
-node_modules
-dist
-dist-ssr
-*.local
-.env
-coverage
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-
-# Swap files
-
-*.sw?
-*.swp
-
-# Temporary files
-
-.backup_git/
-reconstruct_history.ps1
-*.tmp
-*.temp
-
-
-# Node modules
 backend/node_modules/
 frontend/node_modules/
 
-# Environment files
+# Build and distribution outputs
+dist/
+dist-ssr/
+build/
+*.tsbuildinfo
+.vite/
+
+# Compiled native executables and object files
+*.exe
+*.out
+*.o
+*.obj
+*.dll
+*.so
+*.dylib
+cpp-engine/allocator
+cpp-engine/allocator.exe
+
+# Test logs and outputs
+*.log
+cpp-engine/test_output/
+coverage/
+
+# Temporary files and IPC JSON dumps
+cpp-engine/input_*.json
+cpp-engine/output_*.json
+*.tmp
+*.temp
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
 backend/.env
 frontend/.env
 
-# Logs
-*.log
-
-# OS files
+# Editor and OS files
 .DS_Store
 Thumbs.db
-
-# VS Code
-.vscode/
-
-# Build folders
-dist/
-build/
-
-
-node_modules/
-.env
-*.sw?
-
-# Temporary files
-.backup_git/
-reconstruct_history.ps1
-
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
