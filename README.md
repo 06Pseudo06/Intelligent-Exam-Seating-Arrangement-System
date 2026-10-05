@@ -1,169 +1,253 @@
 # Intelligent Exam Seating Arrangement System
 
-An optimized, full-stack application designed to automate and manage candidate seating layout plans for university examinations. The core layout computation is offloaded to a high-speed, constraint-based C++ engine, with a Node.js/Express middleware layer, a relational MySQL persistence store, and a beautiful React.js single-page application dashboard.
+[![Node.js](https://img.shields.io/badge/Node.js-v20+-green.svg)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-v19-blue.svg)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-v5+-blue.svg)](https://www.typescriptlang.org/)
+[![C++](https://img.shields.io/badge/C++-17-darkblue.svg)](https://en.cppreference.com/)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-orange.svg)](https://www.mysql.com/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://www.docker.com/)
+
+An optimized, full-stack application designed to automate and manage candidate seating layout plans for university examinations. The core layout computation is offloaded to a high-speed, constraint-based **C++17 native allocation engine**, paired with a **Node.js/Express** REST API middleware layer, a relational **MySQL** persistence store with connection pooling and ACID transactions, and a responsive **React 19 / TypeScript** single-page application dashboard.
+
+---
+
+## 🏛 Architecture Overview
+
+```
+                      +---------------------------------------+
+                      |         React 19 / TypeScript         |
+                      |        Vite + Tailwind CSS SPA        |
+                      +-------------------+-------------------+
+                                          |
+                                          | HTTPS / REST (JSON)
+                                          v
+                      +---------------------------------------+
+                      |          Express 5 API Gateway        |
+                      |  - Input Validation & Timetable Logic |
+                      |  - Connection Pooling (mysql2)        |
+                      |  - Process Isolation & Execution      |
+                      +---------+-------------------+---------+
+                                |                   |
+                 Transactional  |                   | child_process.spawn
+                 ACID Queries   |                   | (Isolated OS temp files)
+                                v                   v
+          +-----------------------+     +-------------------------------+
+          |       MySQL 8.0       |     |     C++17 Allocation Engine   |
+          |  Relational Database  |     |  - Pre-flight Invariant Check |
+          |  (Candidates, Halls,  |     |  - Max-Heap Cooldown Stream   |
+          |   Exams, Assignments) |     |  - Multi-Traversal Solver     |
+          +-----------------------+     |  - Spatial Penalty Scorer     |
+                                        +-------------------------------+
+```
 
 ---
 
 ## 🚀 Key Features
 
-* **Live Analytics Dashboard**: Consolidated statistics showing total candidates, classroom sizes, scheduled assessments, room capacity utilization rates, and detailed allocation engine metrics (execution times, proximity conflicts).
-* **Interactive 2D Spatial Layout Grid**: True-to-life visualization of classroom desk grids (Rows × Columns) color-coded by student departments, displaying empty desks, inspected tooltips, and scale zoom controls.
-* **Full CRUD Management**: Fully validated interfaces for registering students (including bulk CSV uploads with name parsing), creating exam sessions, and configuring classroom capacities.
-* **Intelligent Optimization Algorithm**: CLI integration with a high-performance C++ executable running constraint-solving optimization models.
-* **Data Portability & Reports**: Export complete seating arrangements as raw CSV tables, serialized JSON logs, or generate printer-friendly physical seating charts.
+* **Interactive 2D Spatial Layout Grid**: True-to-life visualization of classroom desk blueprints ($Rows \times Columns$) color-coded by candidate departments, featuring interactive desk hover cards, live search, scale zoom controls, and section filtering.
+* **Frequency-Balanced Optimization Engine**: Offloads combinatorial seat placement to a native C++ solver using dynamic cooldown queues and spatial penalty objective functions to prevent candidate collusion and same-section clustering.
+* **Timetable Clash Detection**: Automatically detects and prevents double-booking of classrooms across concurrent exam sessions on the same date and overlapping time intervals.
+* **Candidate Roster Management**: Full CRUD for students and exam registrations, including bulk CSV imports with schema normalization and deduplication.
+* **ACID Persistence**: Atomically cleans old arrangements and writes new seating plans and individual seat assignments inside single rollback-safe database transactions.
+* **Data Portability**: Export generated seating charts directly as formatted CSV tables or serialized JSON logs for printing and physical exam hall posting.
+
+---
+
+## ⚙️ Allocation Algorithm & Constraints
+
+The seating solver pipeline is implemented in modular C++17 (`cpp-engine/`):
+
+```text
+[Input JSON] ──> [Validator] ──> [Balancer] ──> [Distributor] ──> [Allocator & Scorer] ──> [Statistics Audit] ──> [Output JSON]
+```
+
+### 1. Invariant Validation (Hard Constraints)
+The engine validates 9 pre-flight invariants before processing:
+* Non-empty candidate and classroom lists.
+* Global uniqueness of Student IDs, Roll Numbers, and Classroom IDs.
+* Mandatory candidate section assignments.
+* Positive non-zero room grid dimensions ($rows > 0 \land cols > 0$).
+* Aggregate venue capacity $\ge$ total registered candidates.
+* Seat exclusivity invariant (at most one student per grid coordinate).
+
+### 2. Stream Interleaving & Section Balancing
+Candidates are grouped by academic section into FIFO queues. A **Max-Heap Priority Queue** paired with a **Dynamic Cooldown Ring** interleaves students from the highest-density sections with a spacing cooldown $T = \max(2, \lfloor N / \text{freq}_{max} \rfloor)$, guaranteeing that candidates from identical branches are not placed consecutively in the pipeline.
+
+### 3. Spatial Penalty Scoring
+Candidates are placed along configurable 2D grid traversals (**Snake**, **Spiral**, **Checkerboard**, **Center-Out**, or **Row-Major**). The solver evaluates each empty desk against an objective scoring function:
+
+$$\min S(r, c) = P_{\text{ortho}} + P_{\text{diag}} + P_{\text{dist2}} + P_{\text{row}} + P_{\text{col}}$$
+
+* **Orthogonal Penalty ($P_{\text{ortho}}$)**: $+10$ per same-section neighbor in 4-cardinal directions (Up, Down, Left, Right), with $+100,000$ offset penalty if strict adjacency avoidance is enabled.
+* **Diagonal Penalty ($P_{\text{diag}}$)**: $+3$ per same-section neighbor in 4-diagonal directions.
+* **Proximity Penalty ($P_{\text{dist2}}$)**: $+1$ per same-section candidate within Manhattan distance $\le 2$ ($5 \times 5$ subgrid).
+* **Row/Column Clustering Penalties**: $+1$ if $\ge 2$ same-section students share the row; $+2$ if $\ge 2$ share the column.
+
+### 4. Post-Allocation Conflict Audit
+Statistics calculates independent single-pass conflict counts (scanning Right, Down, Down-Right, and Down-Left to avoid double counting) to verify arrangement integrity.
 
 ---
 
 ## 🛠 Tech Stack
 
-* **Frontend**: React.js, TypeScript, Vite, Tailwind CSS, Lucide icons
-* **Backend**: Node.js, Express.js, MySQL, Multer (multipart imports)
-* **Allocation Engine**: C++ executable (`allocator.exe`) running local processes
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS | Responsive SPA dashboard and interactive 2D room matrix |
+| **Backend** | Node.js (v20+), Express 5 | REST API gateway, validation, and child process orchestration |
+| **Database** | MySQL 8.0, `mysql2` Pool | Relational store with foreign keys, cascading plans, and transactions |
+| **Engine** | Native C++17 (STL, CMake/Make) | High-speed combinatorial constraint solver and statistics auditor |
+| **DevOps** | Docker, Docker Compose, Nginx | Multi-stage container builds and unified local orchestration |
 
 ---
 
-## 📂 Project Architecture
+## 📂 Project Structure
 
 ```
-├── frontend/                     # React Single Page Application
-│   ├── src/
-│   │   ├── components/           # Common layouts, Table, Card, Page Header
-│   │   ├── pages/                # Dashboard, Students, Classrooms, Exams, SeatingPlan
-│   │   ├── services/             # Axios API clients (seating, students, classrooms, exams)
-│   │   └── types/                # TypeScript interface mappings
-│   └── package.json
+├── .env.example                     # Environment template for Docker Compose
+├── docker-compose.yml               # Multi-container orchestration (DB + Backend + Frontend)
+├── README.md                        # Primary project documentation
 │
-├── backend/                      # Node.js REST API Server
-│   ├── src/
-│   │   ├── controllers/          # Request handlers & logic pipelines
-│   │   ├── routes/               # Express endpoint definitions
-│   │   ├── services/             # C++ child_process exec & MySQL transaction handlers
-│   │   └── config/               # Database pool connectivity configuration
+├── backend/
+│   ├── Dockerfile                   # Multi-stage build (C++ compiler + Node runtime)
+│   ├── package.json                 # Express, mysql2, multer, csv-parser
+│   ├── server.js                    # Express application entry & health checks
 │   ├── database/
-│   │   ├── schema.sql            # Table structures, constraints & relationships
-│   │   └── sample_data.sql       # Mock records for immediate sandbox testing
-│   ├── server.js                 # App server registration and initialization
-│   └── package.json
+│   │   ├── schema.sql               # Relational DDL definitions
+│   │   └── sample_data.sql          # Test dataset (Departments, Students, Halls, Exams)
+│   ├── src/
+│   │   ├── config/db.js             # MySQL connection pool
+│   │   ├── controllers/             # Express route controllers
+│   │   ├── routes/                  # Express endpoint definitions
+│   │   └── services/                # Seating transaction & C++ allocator runner
+│   └── tests/                       # Automated API & C++ runner test suites
 │
-└── cpp-engine/                   # Constraint Solver Engine
-    ├── src/                      # Source files
-    └── allocator.exe             # High-speed executable binaries
+├── cpp-engine/
+│   ├── CMakeLists.txt / Makefile    # Cross-platform build configurations
+│   ├── include/ & src/              # C++ solver source modules
+│   ├── tests/                       # C++ native unit tests (Validation & Balancer)
+│   └── test/                        # 17 regression test fixtures
+│
+└── frontend/
+    ├── Dockerfile & nginx.conf      # Production Nginx SPA build
+    ├── package.json                 # React 19, Vite, Tailwind CSS v4, Lucide
+    └── src/
+        ├── components/              # UI components, modals, stat cards, tables
+        ├── pages/                   # Dashboard, Students, Classrooms, Exams, SeatingPlan
+        ├── routes/                  # SPA client router
+        └── services/                # Axios API services
 ```
 
 ---
 
-## 🔄 Allocation Execution Pipeline
+## 🚀 Quick Start (Docker Compose)
 
-```mermaid
-graph TD
-    A[Frontend Action: Click Generate] --> B[POST /api/seating/generate]
-    B --> C[Fetch Exam Registrations & Room Capacities]
-    C --> D[Write Temporary input_examId.json]
-    D --> E[child_process.spawn C++ Allocator]
-    E --> F[allocator.exe input.json output.json strategy]
-    F --> G[Read output.json & capture stderr]
-    G --> H[Run MySQL Transaction]
-    H --> I[Delete old plans/assignments -> Bulk INSERT new records]
-    I --> J[Clean up Temporary JSON files]
-    J --> K[Return JSON payload to React App]
-    K --> L[Render 2D Grid Room Blueprint]
+The easiest way to run the complete system with the native C++ engine compiled automatically:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/shruti316/Intelligent-Exam-Seating-Arrangement-System.git
+cd Intelligent-Exam-Seating-Arrangement-System
+
+# 2. Start all services via Docker Compose
+docker compose up --build
 ```
 
----
-
-## 💾 Relational Database Schema
-
-The database utilizes relational integrity constraints (`ON DELETE CASCADE`) to synchronize seating plans:
-
-```mermaid
-erDiagram
-    DEPARTMENTS ||--o{ STUDENTS : "belongs to"
-    STUDENTS ||--o{ EXAMS : "registers for"
-    SEATING_PLANS ||--o{ SEAT_ASSIGNMENTS : "contains"
-    CLASSROOMS ||--o{ SEAT_ASSIGNMENTS : "hosts"
-    STUDENTS ||--o{ SEAT_ASSIGNMENTS : "assigned to"
-    EXAMS ||--o{ SEATING_PLANS : "triggers"
-```
-
-### Table Schema Definitions
-1. **`departments`**: Code and name definitions of academic divisions.
-2. **`students`**: Personal details, roll numbers, sections, and semesters.
-3. **`classrooms`**: Venue records containing coordinate layouts (Rows × Columns) and maximum seat capacities.
-4. **`exams`**: Academic schedules, subject codes, dates, times, and computed durations.
-5. **`seating_plans`**: Parent plan logs summarizing allocator statistics (e.g. `total_students`, `occupied_seats`, `conflict_count`, `execution_time_ms`).
-6. **`seat_assignments`**: Direct junction table binding a student to a room row-column coordinate seat. Includes a unique key constraint on `(plan_id, student_id)` and `(plan_id, classroom_id, row_no, col_no)` to prevent overlapping seats.
+* **Frontend Dashboard**: [http://localhost:5173](http://localhost:5173)
+* **Backend API**: [http://localhost:5000](http://localhost:5000)
+* **API Health Check**: [http://localhost:5000/api/health](http://localhost:5000/api/health)
+* **MySQL Database**: `localhost:3306` (Pre-seeded with sample data)
 
 ---
 
-## 🌐 API Specifications
+## 💻 Manual Local Development Setup
 
-### 📊 Dashboard
-* `GET /api/dashboard/stats`: Aggregates records, capacity utilization, and latest seating plans metrics.
-
-### 🎓 Students
-* `GET /api/students`: Lists all active student directory records.
-* `POST /api/students`: Registers a new student.
-* `PUT /api/students/:id`: Updates student details.
-* `DELETE /api/students/:id`: Removes student profile.
-* `POST /api/students/upload`: Parses raw student lists from CSV formats.
-
-### 🏫 Classrooms
-* `GET /api/classrooms`: Lists configured halls.
-* `POST /api/classrooms`: Adds new classrooms layout.
-* `PUT /api/classrooms/:id`: Modifies classroom dimensions.
-* `DELETE /api/classrooms/:id`: Removes classroom.
-
-### 📅 Exams
-* `GET /api/exams`: Lists scheduling cards.
-* `POST /api/exams`: Registers assessment timetables.
-* `PUT /api/exams/:id`: Modifies scheduling card details.
-* `DELETE /api/exams/:id`: Deletes exam schedule.
-
-### 💺 Seating
-* `POST /api/seating/generate`: Triggers C++ allocator for an exam, writing results inside database transactions.
-* `GET /api/seating/:examId`: Retrieves the current seating layout plan.
-
----
-
-## ⚙️ Setup and Installation
-
-### 1. Database Configuration
-1. Initialize a MySQL server instance.
-2. Run database structure scripts:
+### 1. Database Setup
+1. Start a local MySQL server instance.
+2. Initialize tables and seed data:
    ```bash
-   mysql -u [user] -p[password] < backend/database/schema.sql
-   mysql -u [user] -p[password] < backend/database/sample_data.sql
-   ```
-3. Create `backend/.env` file and supply connection variables:
-   ```env
-   DB_HOST=localhost
-   DB_USER=root
-   DB_PASSWORD=your_password
-   DB_NAME=exam_seating_db
-   PORT=5000
+   mysql -u root -p < backend/database/schema.sql
+   mysql -u root -p < backend/database/sample_data.sql
    ```
 
-### 2. Run Backend Server
+### 2. Compile C++ Allocation Engine
+```bash
+cd cpp-engine
+# Using GCC / Clang on Windows/Linux:
+g++ -std=c++17 -O3 src/*.cpp -Iinclude -o allocator.exe  # On Windows
+# OR
+g++ -std=c++17 -O3 src/*.cpp -Iinclude -o allocator      # On Linux / macOS
+```
+
+### 3. Start Backend Server
 ```bash
 cd backend
-npm install
-npm start
-```
-
-### 3. Run Frontend Application
-```bash
-cd frontend
+cp .env.example .env
+# Configure database credentials inside .env
 npm install
 npm run dev
 ```
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+### 4. Start Frontend Application
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+```
 
 ---
 
-## 🧪 E2E Verification
-You can run automated test scripts to verify the C++ child process execution and MySQL integrations:
+## 🧪 Testing & Quality Assurance
+
+### 1. Backend & Integration Tests
+Automated test suites verify API endpoints, missing parameter validations, and native C++ binary execution:
 ```bash
 cd backend
 npm test
 ```
-The test suite validates mock JSON generation, exit codes execution, database transactions rollback logic, and schema constraints.
+
+### 2. C++ Native Unit Tests
+Validates algorithm invariants, frequency ordering, and edge cases:
+```bash
+cd cpp-engine
+g++ -std=c++17 tests/*.cpp src/validator.cpp src/balancer.cpp src/traversal.cpp src/scorer.cpp src/distributor.cpp src/statistics.cpp -Iinclude -o test_runner
+./test_runner
+```
+
+### 3. C++ Regression Test Harness (Windows)
+Executes 17 comprehensive JSON test suites (capacity overflows, duplicate IDs, single-section cohorts, large rosters):
+```bash
+cd cpp-engine
+.\run_tests.bat
+```
+
+---
+
+## 🌐 API Overview
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/health` | Service health status and database connectivity check |
+| `GET` | `/api/dashboard/stats` | Aggregated roster KPIs and latest allocation metrics |
+| `POST` | `/api/seating/generate` | Triggers C++ solver and persists seating plan in a transaction |
+| `GET` | `/api/seating/:examId` | Retrieves active 2D seating layout for an exam |
+| `GET` | `/api/students` | Lists all candidate profiles |
+| `POST` | `/api/students/upload` | Multipart CSV candidate roster parser and importer |
+| `GET` | `/api/classrooms` | Lists classroom capacity dimensions |
+| `GET` | `/api/classrooms/availability/:examId` | Checks hall availability against overlapping exam schedules |
+| `GET` | `/api/exams` | Lists exam timetables |
+| `POST` | `/api/registrations/bulk` | Batch enrolls candidates into an exam session |
+
+---
+
+## 🔒 Security & Robustness Measures
+
+* **Environment Isolation**: No production passwords or credentials stored in source code.
+* **Process Safety**: Native C++ solver runs as an isolated subprocess with execution timeouts and randomized temporary file paths (`os.tmpdir()`) to prevent concurrency race conditions.
+* **ACID Transactions**: Relational rollback safety prevents partial seat assignment writes on allocation failure.
+* **Parameterized Queries**: All database inputs utilize prepared statements (`?`) to prevent SQL injection.
+
+---
+
+## 📄 License
+This project is licensed under the ISC License.
