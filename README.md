@@ -28,8 +28,8 @@ The generated seating arrangements, along with conflict statistics and execution
 | Database | Aiven MySQL | Managed relational database with TLS/SSL encryption |
 | Allocation Engine | C++17 | Constraint-based seating optimization and audit |
 
-**Frontend:** [https://intelligent-exam-seating-arrangement-system.vercel.app](https://intelligent-exam-seating-arrangement-system.vercel.app)  
-**API Health:** [https://intelligent-exam-seating-arrangement-system.onrender.com/api/health](https://intelligent-exam-seating-arrangement-system.onrender.com/api/health)
+**Frontend:** [https://intelligent-exam-seating-aqfzv91q7.vercel.app](https://intelligent-exam-seating-aqfzv91q7.vercel.app)  
+**API Health:** [https://intelligent-exam-seating-arrangement.onrender.com/api/health](https://intelligent-exam-seating-arrangement.onrender.com/api/health)  
 
 > The deployed environment contains demonstration data for students, classrooms, examinations, and registrations.
 
