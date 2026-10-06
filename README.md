@@ -4,8 +4,8 @@
 
 **Stack:** React 19 · TypeScript · Vite · Node.js · Express · MySQL · C++17 · Docker
 
-**Live Demo:** [intelligent-exam-seating-arrangement-system.vercel.app](https://intelligent-exam-seating-arrangement-system.vercel.app)  
-**API Health:** [intelligent-exam-seating-arrangement-system.onrender.com/api/health](https://intelligent-exam-seating-arrangement-system.onrender.com/api/health)
+**Live Demo:** [intelligent-exam-seating-aqfzv91q7.vercel.app](https://intelligent-exam-seating-aqfzv91q7.vercel.app)  
+**API Health:** [intelligent-exam-seating-arrangement.onrender.com/api/health](https://intelligent-exam-seating-arrangement.onrender.com/api/health)  
 
 ---
 
